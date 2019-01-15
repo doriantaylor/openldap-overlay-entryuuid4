@@ -1,4 +1,5 @@
-/* seqmod.c - sequenced modifies */
+/* entryuuid4.c - Generate version 4 UUIDs instead of version 1 */
+
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
  * Copyright 2004-2013 The OpenLDAP Foundation.
@@ -12,8 +13,9 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>.
  */
+
 /* ACKNOWLEDGEMENTS: This work was initially adapted by Dorian Taylor
- * <http://doriantaylor.com/> for inclusion in OpenLDAP Software.
+ * <https://doriantaylor.com/> for inclusion in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -42,8 +44,7 @@ entryuuid4_add_attr(Operation *op, SlapReply *rs)
 
     /* This is totally cribbed from servers/slapd/add.c */
   
-    a = attr_find( op->ora_e->e_attrs,
-                   slap_schema.si_ad_entryUUID );
+    a = attr_find(op->ora_e->e_attrs, slap_schema.si_ad_entryUUID);
 
     if (a) {
         Debug(LDAP_DEBUG_TRACE,
@@ -51,18 +52,26 @@ entryuuid4_add_attr(Operation *op, SlapReply *rs)
               op->o_req_dn.bv_val, 0, 0);
     }
     else {
-        struct berval tmp;
+        struct berval val;
         uuid_t uu;
-        char uuidbuf[40];
+        char uuidbuf[37]; /* 32 hex digits + 4 hyphens + null terminator */
+
+        /* get ourselves a nice shiny random uuid */
 
         uuid_generate_random(uu);
         uuid_unparse_lower(uu, (char *)uuidbuf);
+
+        uuidbuf[36] = NULL; /* make sure this is null */
+
+        /* package it up */
     
-        tmp.bv_len = strlen(uuidbuf);
-        tmp.bv_val = uuidbuf;
+        val.bv_len = strlen(uuidbuf); /* should be 37 but eh */
+        val.bv_val = uuidbuf;
         
+        /* set the attribute */
+
         attr_merge_normalize_one(op->ora_e, slap_schema.si_ad_entryUUID,
-                                 &tmp, op->o_tmpmemctx);
+                                 &val, op->o_tmpmemctx);
 
         Debug(LDAP_DEBUG_TRACE,
               "entryuuid4: Injected entryUUID %s when adding %s\n",
@@ -72,6 +81,7 @@ entryuuid4_add_attr(Operation *op, SlapReply *rs)
     return SLAP_CB_CONTINUE;
 }
 
+/* (overlay boilerplate) */
 
 /* This overlay is set up for dynamic loading via moduleload. For static
  * configuration, you'll need to arrange for the slap_overinst to be
